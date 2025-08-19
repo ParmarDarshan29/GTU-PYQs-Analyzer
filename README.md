@@ -1,34 +1,34 @@
-# GTU PYQs Analyzer Pro 🎓
+# GTU PYQs Analyzer Pro 
 
 An advanced AI-powered system for analyzing Gujarat Technological University (GTU) Previous Year Questions (PYQs) to help students optimize their exam preparation strategy.
 
-## 🌟 Features
+## Features
 
-### 🔍 Advanced Question Analysis
+### Advanced Question Analysis
 - **Semantic Clustering**: Groups similar questions using ML algorithms
 - **Topic Extraction**: TF-IDF based keyword and topic importance analysis
 - **Question Complexity**: Readability and difficulty assessment
 - **Pattern Recognition**: Identifies frequently repeated question patterns
 
-### 🤖 AI-Powered Insights
+### AI-Powered Insights
 - **Multiple LLM Support**: GPT-4, Claude, and other models via OpenRouter
 - **Comprehensive Analysis**: AI-generated study recommendations
 - **Trend Analysis**: Historical question pattern evolution
 - **Personalized Study Plans**: Adaptive preparation strategies
 
-### 📊 Rich Visualizations
+### Rich Visualizations
 - **Interactive Charts**: Plotly-based data visualizations
 - **Word Clouds**: Visual topic importance representation
 - **Complexity Analysis**: Question difficulty distribution
 - **Cluster Visualization**: Question similarity networks
 
-### 💾 Export & Sharing
+### Export & Sharing
 - **Multiple Formats**: JSON, TXT export options
 - **Comprehensive Reports**: Detailed analysis summaries
 - **Question Database**: Structured question data export
 - **Caching System**: Fast repeat analysis
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.8 or higher
@@ -57,7 +57,7 @@ streamlit run main.py
    - Enter your OpenRouter API key
    - Upload PDF files and start analysis
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 gtu_pyqs_analyzer/
@@ -80,7 +80,7 @@ gtu_pyqs_analyzer/
     └── sample_data/           # Sample files for testing
 ```
 
-## 🔧 Configuration
+##  Configuration
 
 ### API Setup
 1. Get an API key from [OpenRouter.ai](https://openrouter.ai)
@@ -94,7 +94,7 @@ gtu_pyqs_analyzer/
 - **Trend Analysis**: Historical pattern analysis
 - **Caching**: Store results for faster repeat analysis
 
-## 📖 Usage Guide
+## Usage Guide
 
 ### 1. Prepare Your Files
 - Ensure PDFs contain clear, readable text
@@ -113,7 +113,7 @@ gtu_pyqs_analyzer/
 - **Raw Data**: Question database and statistics
 - **Export**: Download results in multiple formats
 
-## 🎯 Use Cases
+## Use Cases
 
 ### For Students
 - **Exam Preparation**: Identify high-priority topics
@@ -133,7 +133,7 @@ gtu_pyqs_analyzer/
 - **NLP Applications**: Question processing techniques
 - **ML Model Training**: Educational dataset creation
 
-## 🛠️ Technical Details
+## Technical Details
 
 ### Core Technologies
 - **Frontend**: Streamlit with custom CSS
@@ -156,7 +156,7 @@ gtu_pyqs_analyzer/
 - **Streaming**: Progressive result display
 - **Error Handling**: Robust failure recovery
 
-## 📊 Output Examples
+## Output Examples
 
 ### Analysis Report Sample
 ```
@@ -182,7 +182,7 @@ gtu_pyqs_analyzer/
 - Prepare network protocol diagrams
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Here's how:
 
@@ -209,25 +209,25 @@ pip install -r requirements-dev.txt  # If available
 python -m pytest tests/
 ```
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **OpenRouter** for providing accessible LLM APIs
 - **Streamlit** for the amazing web framework
 - **GTU Students** for inspiration and feedback
 - **Open Source Community** for the excellent libraries
 
-## 📞 Support
+## Support
 
 - **Documentation**: Check this README and inline help
 - **Issues**: Report bugs via GitHub Issues
 - **Discussions**: Join GitHub Discussions for questions
 - **Email**: contact@yourproject.com (if available)
 
-## 🎖️ Resume Highlights
+## Resume Highlights
 
 This project demonstrates:
 
@@ -254,5 +254,3 @@ This project demonstrates:
 ---
 
 **Made with ❤️ for GTU students and educators**
-
-*Version 2.0 | Last Updated: December 2024*
