@@ -220,13 +220,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **GTU Students** for inspiration and feedback
 - **Open Source Community** for the excellent libraries
 
-## Support
-
-- **Documentation**: Check this README and inline help
-- **Issues**: Report bugs via GitHub Issues
-- **Discussions**: Join GitHub Discussions for questions
-- **Email**: contact@yourproject.com (if available)
-
 ## Resume Highlights
 
 This project demonstrates:
