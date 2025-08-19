@@ -1,2 +1,0 @@
- conda activate impq
- streamlit run main.py
