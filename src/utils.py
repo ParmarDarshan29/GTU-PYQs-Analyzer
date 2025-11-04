@@ -6,6 +6,12 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Any
+import io
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 import re
 import nltk
 
@@ -240,14 +246,14 @@ def format_analysis_report(analysis_data: Dict) -> str:
         str: Formatted report
     """
     report_lines = [
-        "# GTU PYQs Analysis Report",
+        "#GTU PYQs Analysis Report",
         f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         "",
         "## Summary",
-        f"- Total Questions: {analysis_data.get('total_questions', 0)}",
-        f"- Files Processed: {analysis_data.get('files_processed', 0)}",
-        f"- Unique Topics: {len(analysis_data.get('keywords', []))}",
-        f"- Question Clusters: {analysis_data.get('clusters', 0)}",
+        f"-Total Questions: {analysis_data.get('total_questions', 0)}",
+        f"-Files Processed: {analysis_data.get('files_processed', 0)}",
+        f"-Unique Topics: {len(analysis_data.get('keywords', []))}",
+        f"-Question Clusters: {analysis_data.get('clusters', 0)}",
         "",
     ]
     
@@ -458,6 +464,80 @@ def create_export_package(questions: List[Dict], analysis_results: Dict, metadat
         'metadata': metadata,
         'summary_statistics': create_summary_statistics(questions)
     }
+
+
+def create_pdf_from_text(title: str, body: str) -> bytes:
+    """
+    Create a simple PDF from plain text and return bytes.
+
+    Args:
+        title: Title to place at top of PDF
+        body: Body text to include
+
+    Returns:
+        bytes of PDF file
+    """
+    # Create a PDF that supports simple Markdown-like formatting (headings, bold, italics, bullets)
+    buffer = io.BytesIO()
+    try:
+        doc = SimpleDocTemplate(buffer, pagesize=letter,
+                                rightMargin=72, leftMargin=72,
+                                topMargin=72, bottomMargin=72)
+        styles = getSampleStyleSheet()
+        # Custom styles
+        styles.add(ParagraphStyle(name='TitleStyle', parent=styles['Heading1'], fontSize=18, leading=22))
+        styles.add(ParagraphStyle(name='H2', parent=styles['Heading2'], fontSize=14, leading=18))
+        body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, leading=14)
+
+        flowables = []
+        # Title
+        flowables.append(Paragraph(title, styles['TitleStyle']))
+        flowables.append(Spacer(1, 0.1 * inch))
+
+        # Split body into paragraphs by blank lines
+        paragraphs = re.split(r"\n\s*\n", body)
+        for para in paragraphs:
+            text = para.strip()
+            if not text:
+                continue
+
+            # Heading level 1 (# )
+            if text.startswith('# '):
+                flowables.append(Paragraph(text.lstrip('# ').strip(), styles['Title']))
+                flowables.append(Spacer(1, 0.08 * inch))
+                continue
+            # Heading level 2 (## )
+            if text.startswith('## '):
+                flowables.append(Paragraph(text.lstrip('# ').strip(), styles['H2']))
+                flowables.append(Spacer(1, 0.06 * inch))
+                continue
+
+            # Bullet lists: lines starting with -, * or +
+            lines = text.splitlines()
+            if all(re.match(r'^\s*[-\*\+\u2022]\s+', ln) for ln in lines):
+                for ln in lines:
+                    item = re.sub(r'^\s*[-\*\+\u2022]\s+', '', ln).strip()
+                    # convert simple markdown bold/italic to HTML-like tags
+                    item_html = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', item)
+                    item_html = re.sub(r'\*(.+?)\*', r'<i>\1</i>', item_html)
+                    flowables.append(Paragraph('• ' + item_html, body_style))
+                flowables.append(Spacer(1, 0.04 * inch))
+                continue
+
+            # Normal paragraph - convert basic markdown inline styles
+            text_html = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+            text_html = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text_html)
+            # Replace single newlines within paragraph with <br/>
+            text_html = text_html.replace('\n', '<br/>')
+            flowables.append(Paragraph(text_html, body_style))
+            flowables.append(Spacer(1, 0.06 * inch))
+
+        doc.build(flowables)
+        pdf = buffer.getvalue()
+    finally:
+        buffer.close()
+
+    return pdf
 
 
 def estimate_processing_time(file_count: int, total_pages: int) -> str:

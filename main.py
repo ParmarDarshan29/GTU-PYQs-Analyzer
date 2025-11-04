@@ -8,6 +8,8 @@ import time
 import json
 from datetime import datetime
 from typing import List, Dict
+from pathlib import Path
+import re
 
 # Import custom modules
 from src.pdf_processor import PDFProcessor
@@ -18,7 +20,8 @@ from src.visualizer import Visualizer
 from src.utils import (
     download_nltk_data, validate_api_key, create_session_id,
     export_to_json, estimate_processing_time, AnalysisCache,
-    format_duration, handle_api_error, create_export_package
+    format_duration, handle_api_error, create_export_package,
+    create_pdf_from_text
 )
 from config.config import (
     PAGE_TITLE, PAGE_ICON, LAYOUT, MODEL_OPTIONS,
@@ -44,14 +47,16 @@ def load_custom_css():
         text-align: center;
         color: #2E86AB;
         font-size: 3em;
-        margin-bottom: 0.5em;
+        margin-bottom: 0.2em;
+        margin-top: 0.2em;
         font-weight: bold;
     }
     .sub-header {
         text-align: center;
         color: #A23B72;
         font-size: 1.2em;
-        margin-bottom: 2em;
+        margin-top: 0.2em;
+        margin-bottom: 1em;
     }
     .metric-container {
         background-color: #f0f2f6;
@@ -121,56 +126,16 @@ def create_sidebar():
         help="Different models have varying capabilities and costs"
     )
     model_name = MODEL_OPTIONS[selected_model_name]
-    
-    # Analysis Options
-    st.sidebar.subheader("Analysis Options")
-    
-    max_questions = st.sidebar.slider(
-        "Max Questions to Analyze",
-        min_value=50,
-        max_value=1000,
-        value=DEFAULT_MAX_QUESTIONS,
-        step=50,
-        help="Higher values provide more comprehensive analysis but take longer"
-    )
-    
-    enable_clustering = st.sidebar.checkbox(
-        "Enable Semantic Clustering",
-        value=True,
-        help="Groups similar questions together"
-    )
-    
-    enable_complexity = st.sidebar.checkbox(
-        "Enable Complexity Analysis",
-        value=True,
-        help="Analyzes question difficulty and readability"
-    )
-    
-    enable_trends = st.sidebar.checkbox(
-        "Enable Trend Analysis",
-        value=False,
-        help="Analyzes patterns across years (if year data available)"
-    )
-    
-    # Advanced Options
-    with st.sidebar.expander("Advanced Options"):
-        clustering_method = st.selectbox(
-            "Clustering Algorithm",
-            ["K-Means", "Hierarchical"],
-            help="Algorithm used for grouping similar questions"
-        )
-        
-        similarity_threshold = st.slider(
-            "Similarity Threshold",
-            0.1, 1.0, 0.7,
-            help="How similar questions must be to group together"
-        )
-        
-        cache_results = st.checkbox(
-            "Cache Results",
-            value=True,
-            help="Store results to speed up repeated analysis"
-        )
+    # Hidden analysis options (use sensible defaults; UI controls removed)
+    max_questions = DEFAULT_MAX_QUESTIONS
+    enable_clustering = True
+    enable_complexity = True
+    enable_trends = False
+
+    # Hidden advanced options (defaults)
+    clustering_method = "K-Means"
+    similarity_threshold = 0.7
+    cache_results = True
     
     return {
         'api_key': api_key,
@@ -388,202 +353,186 @@ def perform_llm_analysis(questions: List[Dict], nlp_results: Dict, config: Dict)
 
 def display_results(questions: List[Dict], nlp_results: Dict, llm_results: Dict, 
                    file_metadata: List[Dict], file_summary: Dict):
-    """Display comprehensive analysis results."""
+    """Display comprehensive analysis results, split LLM sections into separate tabs, and provide PDF export."""
     visualizer = Visualizer()
-    
+
     # Overview metrics
     st.markdown("## 📊 Analysis Overview")
     visualizer.create_overview_metrics(questions, file_summary)
-    
-    # Success message
-    st.markdown(f"""
-    <div class="success-box">
-        <h4>Analysis Completed Successfully!</h4>
-        <p>Processed <strong>{len(questions)}</strong> questions from <strong>{file_summary.get('total_files', 0)}</strong> files.</p>
-        <p>Found <strong>{len(nlp_results.get('keywords', []))}</strong> key topics and <strong>{len(nlp_results.get('clusters', {}))}</strong> question clusters.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Create result tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "AI Analysis", 
-        "Visualizations", 
-        "Detailed Insights", 
-        "Raw Data",
-        "Export"
-    ])
-    
-    with tab1:
-        st.markdown("### Comprehensive AI Analysis")
-        if llm_results.get('comprehensive_analysis'):
-            st.markdown(llm_results['comprehensive_analysis'])
+
+    # Get LLM analysis text
+    analysis_text = llm_results.get('comprehensive_analysis', '')
+    if not analysis_text:
+        st.info("AI analysis not available. Check your API key and connection.")
+        return
+
+    # Strip a leading LLM-generated TOC block (heading-only lines) if present.
+    # Strip a leading LLM-generated TOC block (heading-only lines) if present.
+    # Many LLMs print a short list of section headings before the full sections,
+    # which results in duplicated headings. We'll detect a block of consecutive
+    # heading-like lines at the start (3+) and remove them. Matching is made
+    # flexible to handle numbering, punctuation, ampersands, and minor variants.
+    lines = analysis_text.splitlines()
+
+    # Keywords to detect section headings (keeps it robust to small variations)
+    heading_keywords = [
+        'FREQUENCY', 'TOPIC', 'DISTRIBUTION', 'IMPORTANCE',
+        'QUESTION', 'TYPES', 'PATTERNS', 'DIFFICULTY',
+        'STRATEGIC', 'STUDY', 'RECOMMENDATIONS', 'EXAM', 'PREPARATION', 'INSIGHTS'
+    ]
+
+    def looks_like_heading_only(s: str) -> bool:
+        if not s or len(s.strip()) == 0:
+            return False
+        # remove numbering like '1.' or '1)'
+        s_clean = re.sub(r'^\s*\d+[\.)]\s*', '', s)
+        # normalize: remove punctuation and multiple spaces
+        s_norm = re.sub(r'[^A-Z0-9 ]', '', s_clean.upper()).strip()
+        # consider it a heading if it contains at least one of the heading keywords
+        # and is relatively short (heuristic)
+        if len(s_norm) > 120:
+            return False
+        return any(k in s_norm for k in heading_keywords)
+
+    # scan from the first non-empty line
+    idx = 0
+    while idx < len(lines) and not lines[idx].strip():
+        idx += 1
+
+    heading_block_start = idx
+    heading_block_count = 0
+    j = heading_block_start
+    while j < len(lines):
+        if not lines[j].strip():
+            # allow a single blank line inside the heading block but break if many
+            # a blank line probably indicates end of TOC
+            break
+        if looks_like_heading_only(lines[j]):
+            heading_block_count += 1
+            j += 1
+            continue
+        # If we encounter a numbered section like '1. FREQUENCY...' treat this as
+        # the real content start and stop scanning (we will remove the preceding TOC)
+        if re.match(r'^\s*\d+[\.)]\s*', lines[j]):
+            break
+        # otherwise stop — we've hit non-heading content
+        break
+
+    # If we found a TOC-like block (3+ headings) and there's more content after it,
+    # strip the heading-only block from the start of analysis_text.
+    if heading_block_count >= 3 and j < len(lines):
+        analysis_text = '\n'.join(lines[j:]).strip()
+
+    # Expected sections (in order). We'll search case-insensitively in the LLM output.
+    expected_sections = [
+        '1. FREQUENCY ANALYSIS',
+        '2. TOPIC DISTRIBUTION & IMPORTANCE',
+        '3. QUESTION TYPES & PATTERNS',
+        '4. DIFFICULTY ANALYSIS',
+        '5. STRATEGIC STUDY RECOMMENDATIONS',
+        '6. EXAM PREPARATION INSIGHTS'
+    ]
+
+    # Build mapping of found section start positions
+    upper_text = analysis_text.upper()
+    found = []
+    for key in expected_sections:
+        idx = upper_text.find(key)
+        if idx >= 0:
+            found.append((idx, key))
         else:
-            st.warning("AI analysis not available. Check your API key and connection.")
-        
-        if llm_results.get('study_plan'):
-            st.markdown("### Personalized Study Plan")
-            st.markdown(llm_results['study_plan'])
-        
-        if llm_results.get('trend_analysis'):
-            st.markdown("### Historical Trend Analysis")
-            st.markdown(llm_results['trend_analysis'])
-    
-    with tab2:
-        st.markdown("### Interactive Visualizations")
-        
-        # Question length distribution
-        visualizer.plot_question_length_distribution(questions)
-        
-        # Keywords visualization
-        if nlp_results.get('keywords'):
-            visualizer.create_keywords_wordcloud(nlp_results['keywords'])
-        
-        # Cluster analysis
-        if nlp_results.get('clusters'):
-            visualizer.plot_cluster_distribution(nlp_results['clusters'])
-        
-        # Complexity analysis
-        if nlp_results.get('complexity_scores'):
-            visualizer.plot_complexity_analysis(nlp_results['complexity_scores'])
-        
-        # Year distribution
-        visualizer.plot_year_distribution(questions)
-        
-        # File comparison
-        if len(file_metadata) > 1:
-            visualizer.create_comparison_charts(file_metadata)
-    
-    with tab3:
-        st.markdown("### Detailed Analysis Results")
-        
-        # Keywords table
-        if nlp_results.get('keywords'):
-            visualizer.display_keywords_table(nlp_results['keywords'])
-        
-        # Frequent questions
-        if nlp_results.get('frequent_questions'):
-            frequent_data = nlp_results['frequent_questions']
-            if frequent_data.get('frequent_groups'):
-                st.subheader("Most Frequent Question Patterns")
-                for i, group in enumerate(frequent_data['frequent_groups'][:10]):
-                    with st.expander(f"Pattern {i+1}: Asked {group['frequency']} times"):
-                        st.write(f"**Representative Question:** {group['representative']['text'][:200]}...")
-                        st.write(f"**Frequency:** {group['frequency']} similar questions")
-        
-        # File analysis summary
-        st.subheader("File Processing Summary")
-        for metadata in file_metadata:
-            with st.expander(f"{metadata['file_name']}"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Pages:** {metadata['page_count']}")
-                    st.write(f"**Total Words:** {metadata.get('total_words', 0)}")
-                with col2:
-                    st.write(f"**File Size:** {metadata.get('file_size', 0)} bytes")
-                    st.write(f"**Title:** {metadata.get('title', 'Unknown')}")
-    
-    with tab4:
-        st.markdown("### Question Database")
-        
-        # Create DataFrame for display
-        import pandas as pd
-        questions_df = pd.DataFrame([
-            {
-                'ID': q['id'],
-                'Question Preview': q['text'][:100] + "..." if len(q['text']) > 100 else q['text'],
-                'Word Count': q['word_count'],
-                'Year': q.get('year', 'N/A'),
-                'Type': 'MCQ' if q.get('has_options') else 'Descriptive',
-                'Estimated Marks': q.get('estimated_marks', 'N/A')
-            }
-            for q in questions
-        ])
-        
-        st.dataframe(questions_df, use_container_width=True, height=400)
-        
-        # Question statistics
-        question_processor = QuestionProcessor()
-        stats = question_processor.get_question_statistics(questions)
-        
-        if stats:
-            st.subheader("Question Statistics")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("Average Words", f"{stats['avg_word_count']:.1f}")
-                st.metric("Min Words", stats['min_word_count'])
-            
-            with col2:
-                st.metric("Max Words", stats['max_word_count'])
-                st.metric("MCQ Questions", stats.get('mcq_questions', 0))
-            
-            with col3:
-                st.metric("Questions with Years", stats.get('questions_with_years', 0))
-                st.metric("Year Range", f"{len(stats.get('year_distribution', {}))}")
-    
-    with tab5:
-        st.markdown("### Export Analysis Results")
-        
-        # Create export package
-        export_package = create_export_package(questions, {
-            'nlp_results': nlp_results,
-            'llm_results': llm_results,
-            'file_summary': file_summary
-        }, file_metadata)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Export questions
-            questions_json = export_to_json(questions, "gtu_questions")
-            st.download_button(
-                label="Download Questions (JSON)",
-                data=questions_json,
-                file_name=f"gtu_questions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                mime="application/json",
-                help="Download all extracted questions in JSON format"
-            )
-        
-        with col2:
-            # Export complete analysis
-            complete_analysis = export_to_json(export_package, "gtu_complete_analysis")
-            st.download_button(
-                label="Download Complete Analysis",
-                data=complete_analysis,
-                file_name=f"gtu_complete_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                mime="application/json",
-                help="Download complete analysis including all results"
-            )
-        
-        # Export summary report
-        st.subheader("Summary Report")
-        summary_text = f"""
-# GTU PYQs Analysis Report
+            # try without number prefix (e.g., 'FREQUENCY ANALYSIS')
+            key_no_num = key.split('. ', 1)[-1]
+            idx2 = upper_text.find(key_no_num)
+            if idx2 >= 0:
+                found.append((idx2, key))
 
-**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    sections = {}
+    if found:
+        found.sort()
+        for i, (pos, key) in enumerate(found):
+            start = pos
+            end = found[i+1][0] if i+1 < len(found) else len(analysis_text)
+            part = analysis_text[start:end].strip()
+            # remove heading line if present
+            lines = part.splitlines()
+            if len(lines) > 1:
+                content = '\n'.join(lines[1:]).strip()
+            else:
+                content = ''
+            sections[key] = content
+    else:
+        # Fallback: show whole analysis as a single section
+        sections['Full Analysis'] = analysis_text
 
-## Summary
-- **Total Questions Analyzed:** {len(questions)}
-- **Files Processed:** {file_summary.get('total_files', 0)}
-- **Key Topics Identified:** {len(nlp_results.get('keywords', []))}
-- **Question Clusters:** {len(nlp_results.get('clusters', {}))}
+    # Create tabs for each found/expected section (preserve requested order)
+    if 'Full Analysis' in sections:
+        tabs = st.tabs(['AI Analysis'])
+        with tabs[0]:
+            st.markdown(sections['Full Analysis'])
+    else:
+        tab_labels = []
+        tab_keys = []
+        for key in expected_sections:
+            if key in sections:
+                label = key.split(' ', 1)[1] if key[0].isdigit() else key
+                tab_labels.append(label)
+                tab_keys.append(key)
 
-## Top Topics
-{chr(10).join([f"- {kw[0]} (Score: {kw[1]:.4f})" for kw in nlp_results.get('keywords', [])[:10]])}
+        tabs = st.tabs(tab_labels)
+        for i, key in enumerate(tab_keys):
+            with tabs[i]:
+                st.markdown(f"### {key}")
+                st.markdown(sections.get(key, 'No content available for this section.'))
 
-## Recommendations
-Based on the analysis, focus your preparation on the topics listed above as they appear most frequently in past examinations.
-        """
-        
-        st.text_area("Report Preview", summary_text, height=200)
-        
+    # Append a dedicated Study Plan tab to the section tabs
+    # (we'll render study plan and trend analysis inside that tab)
+    if 'Full Analysis' in sections:
+        # If full analysis only, add a second tab for study plan
+        more_tabs = st.tabs(['Study Plan'])
+        with more_tabs[0]:
+            if llm_results.get('study_plan'):
+                st.markdown("## Personalized Study Plan")
+                st.markdown(llm_results['study_plan'])
+            if llm_results.get('trend_analysis'):
+                st.markdown("## Historical Trend Analysis")
+                st.markdown(llm_results['trend_analysis'])
+    else:
+        # If we have section tabs, add Study Plan as an additional tab
+        if 'tab_labels' in locals():
+            tab_labels.append('Personalized Study Plan')
+            tab_keys.append('STUDY_PLAN')
+            # Re-create tabs with the new label set and render existing ones again
+            tabs = st.tabs(tab_labels)
+            for i, key in enumerate(tab_keys):
+                with tabs[i]:
+                    if key == 'STUDY_PLAN':
+                        if llm_results.get('study_plan'):
+                            st.markdown("## Personalized Study Plan")
+                            st.markdown(llm_results['study_plan'])
+                        if llm_results.get('trend_analysis'):
+                            st.markdown("## Historical Trend Analysis")
+                            st.markdown(llm_results['trend_analysis'])
+                    else:
+                        # Render section content
+                        st.markdown(f"### {key}")
+                        st.markdown(sections.get(key, 'No content available for this section.'))
+
+    # Download PDF of full analysis
+    full_text = f"GTU PYQs Analysis Report\n\n{analysis_text}\n\nSTUDY PLAN:\n{llm_results.get('study_plan','')}\n\nTRENDS:\n{llm_results.get('trend_analysis','')}"
+    try:
+        pdf_bytes = create_pdf_from_text('GTU PYQs Analysis Report', full_text)
         st.download_button(
-            label="Download Summary Report",
-            data=summary_text,
-            file_name=f"gtu_summary_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-            mime="text/plain",
-            help="Download a formatted summary report"
+            label="Download Analysis as PDF",
+            data=pdf_bytes,
+            file_name=f"gtu_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            mime='application/pdf'
         )
+    except Exception as e:
+        # If PDF generation fails, show a warning but do not offer JSON export per user preference
+        st.warning(f"PDF generation failed: {str(e)}. PDF export is unavailable at the moment.")
+
+    # Questions export removed per user request (no JSON downloads). If needed, we can add PDF export here.
 
 
 def main():
@@ -593,6 +542,20 @@ def main():
     load_custom_css()
     
     # Header
+    # Show logo if available (centered and large)
+    try:
+        base_dir = Path(__file__).resolve().parent
+        logo_path = base_dir / "download.png"
+        if logo_path.exists():
+            # use a slightly narrower center column to keep the logo medium-sized
+            col1, col2, col3 = st.columns([2,1,2])
+            with col2:
+                # show a medium fixed width to avoid oversized logo
+                st.image(str(logo_path), width=150)
+    except Exception:
+        # Fail silently if image can't be loaded
+        pass
+
     st.markdown('<h1 class="main-header"> GTU PYQs Analyzer </h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Advanced Question Pattern Analysis & AI-Powered Study Recommendations</p>', unsafe_allow_html=True)
     
