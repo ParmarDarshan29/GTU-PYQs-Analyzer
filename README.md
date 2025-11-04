@@ -57,6 +57,29 @@ streamlit run main.py
    - Enter your OpenRouter API key
    - Upload PDF files and start analysis
 
+## Deploy to Streamlit Community Cloud (recommended)
+
+This is the easiest way to publish your app publicly or privately and manage secrets securely.
+
+1. Push your repository to GitHub (public or private).
+2. Go to https://streamlit.io/cloud and sign in with GitHub.
+3. Click "New app", choose your repository and branch, and set the main file to `main.py`.
+4. Add your OpenRouter API key in the app's Secrets (Manage app → Secrets) as `OPENROUTER_API_KEY`.
+    - Alternatively, for local testing create a `.streamlit/secrets.toml` file (do not commit it):
+      ```toml
+      # .streamlit/secrets.toml (local only)
+      OPENROUTER_API_KEY = "your_openrouter_api_key_here"
+      ```
+5. Streamlit Cloud will install dependencies from `requirements.txt` and start the app. If you need a custom start command, use:
+    ```
+    streamlit run main.py
+    ```
+
+Notes:
+- Keep secrets out of source control. Use the Streamlit Cloud Secrets UI for production keys.
+- The app is configured to read `OPENROUTER_API_KEY` from `st.secrets` or the `OPENROUTER_API_KEY` environment variable automatically.
+- If PDF generation requires additional system packages in a hosted container, consult the Streamlit Cloud docs or prefer a Docker-based host like Render.
+
 ## Project Structure
 
 ```
@@ -246,4 +269,3 @@ This project demonstrates:
 
 ---
 
-**Made with ❤️ for GTU students and educators**

@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import List, Dict
 from pathlib import Path
 import re
+import os
 
 # Import custom modules
 from src.pdf_processor import PDFProcessor
@@ -112,9 +113,12 @@ def create_sidebar():
     st.sidebar.header("Configuration")
     
     # API Configuration
+    # Prefill API key from Streamlit secrets or environment variable when available
+    default_api_key = st.secrets.get("OPENROUTER_API_KEY", os.environ.get("OPENROUTER_API_KEY", ""))
     api_key = st.sidebar.text_input(
         "OpenRouter API Key:",
         type="password",
+        value=default_api_key,
         help="Get your API key from openrouter.ai"
     )
     
