@@ -1,12 +1,8 @@
 <p align="center">
-	<img src="gtu.png" alt="GTU Logo" width="400" />
+	<img src="gtu.png" alt="GTU Logo" width="500" />
 </p>
 
-# GTU PYQs Analyzer Pro 
-
 An advanced AI-powered system for analyzing Gujarat Technological University (GTU) Previous Year Questions (PYQs) to help students optimize their exam preparation strategy.
-
-# GTU PYQs Analyzer
 
 Live demo: https://gtu-pyqs-analyzer-cr7kag2ajmczjypucokxly.streamlit.app/
 
