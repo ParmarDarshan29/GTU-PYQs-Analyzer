@@ -4,6 +4,10 @@ An advanced AI-powered system for analyzing Gujarat Technological University (GT
 
 ## Features
 
+<p align="center">
+	<img src="assets/gtu.png" alt="GTU Logo" width="200" />
+</p>
+
 # GTU PYQs Analyzer
 
 Live demo: https://gtu-pyqs-analyzer-cr7kag2ajmczjypucokxly.streamlit.app/
