@@ -1,12 +1,10 @@
-# GTU PYQs Analyzer Pro 
-
-An advanced AI-powered system for analyzing Gujarat Technological University (GTU) Previous Year Questions (PYQs) to help students optimize their exam preparation strategy.
-
-## Features
-
 <p align="center">
 	<img src="gtu.png" alt="GTU Logo" width="200" />
 </p>
+
+# GTU PYQs Analyzer Pro 
+
+An advanced AI-powered system for analyzing Gujarat Technological University (GTU) Previous Year Questions (PYQs) to help students optimize their exam preparation strategy.
 
 # GTU PYQs Analyzer
 
