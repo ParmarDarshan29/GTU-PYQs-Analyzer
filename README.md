@@ -1,5 +1,5 @@
 <p align="center">
-	<img src="gtu.png" alt="GTU Logo" width="200" />
+	<img src="gtu.png" alt="GTU Logo" width="400" />
 </p>
 
 # GTU PYQs Analyzer Pro 
